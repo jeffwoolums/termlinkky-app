@@ -1,118 +1,214 @@
-# TermLinkky (Flutter)
+# TermLinkky
 
-Cross-platform remote terminal client for developers. One codebase → iOS, Android, macOS, Windows, Linux.
+Remote terminal access for developers. Control your workstation from anywhere.
+
+![Logo](assets/logo.jpg)
 
 ## Features
 
-- **Secure Pairing** - Certificate pinning ensures you're connecting to YOUR workstation
-- **Command Palette** - Quick access to common commands (git, npm, docker, AI agents)
-- **Live Terminal** - Real-time output with ANSI color support
-- **Custom Commands** - Add your own frequently-used commands
-- **Cross-Platform** - Same app on all devices
+### 📱 Client App (iOS, Android, Mac, Windows, Linux)
+- **Terminal** - Full terminal access with ANSI color support
+- **AI Assist** - Natural language to commands (uses your Claude/OpenAI key)
+- **AI Sessions** - Monitor/control Claude Code, Codex, Aider running on your workstation
+- **Command Palette** - Quick access to common commands by category
+- **Secure Pairing** - Certificate pinning after initial setup
+
+### 💻 Server (Mac, Windows, Linux)
+- **Tailscale Required** - Secure VPN, no port forwarding needed
+- **Auto SSL** - Self-signed certificate generation
+- **WebSocket Terminal** - Real-time bidirectional I/O
+- **tmux Integration** - Manage AI coding sessions
 
 ## Architecture
 
 ```
-┌────────────────────────────────────────────────────────┐
-│                    Flutter Client                       │
-│  (iOS • Android • macOS • Windows • Linux)             │
-└────────────────────────┬───────────────────────────────┘
-                         │ WebSocket + TLS
-                         │ (Certificate Pinning)
+┌────────────────────────────────────────────────────────────┐
+│                    TermLinkky Client                        │
+│          (iOS • Android • macOS • Windows • Linux)         │
+│                                                             │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
+│  │  Terminal   │  │  AI Assist  │  │    AI Sessions      │ │
+│  │             │  │  (Mode 1)   │  │     (Mode 2)        │ │
+│  │  Direct     │  │  Phone AI   │  │  Observe/control    │ │
+│  │  commands   │  │  → commands │  │  server AI agents   │ │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
+└────────────────────────┬───────────────────────────────────┘
+                         │ Tailscale VPN + Cert Pinning
                          ▼
-┌────────────────────────────────────────────────────────┐
-│                    Python Server                        │
-│  (macOS • Windows • Linux)                             │
-└────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│                    TermLinkky Server                        │
+│              (macOS • Windows • Linux)                      │
+│                                                             │
+│  • WebSocket terminal server                                │
+│  • tmux session management                                  │
+│  • Self-signed SSL certificate                              │
+└────────────────────────────────────────────────────────────┘
 ```
 
-## Getting Started
+## Quick Start
 
-### Prerequisites
-
-- Flutter SDK 3.0+
-- Dart 3.0+
-
-### Install Flutter
+### 1. Install Tailscale (Both Devices)
 
 ```bash
 # macOS
-brew install --cask flutter
+brew install tailscale && tailscale up
 
-# Or download from https://flutter.dev
+# Windows
+# Download from https://tailscale.com/download
+
+# Linux
+curl -fsSL https://tailscale.com/install.sh | sh && sudo tailscale up
 ```
 
-### Run the App
+### 2. Start the Server
+
+**macOS/Linux:**
+```bash
+cd server
+./install.sh  # or install_linux.sh
+python3 server.py
+```
+
+**Windows:**
+```cmd
+cd server
+install_windows.bat
+python server_windows.py
+```
+
+You'll see:
+```
+==================================================
+  TermLinkky Server
+==================================================
+
+  ✓ Tailscale connected
+
+  📍 Address: 100.x.x.x:8443
+
+  🔐 Pairing Code: 123456
+==================================================
+```
+
+### 3. Build & Install the App
 
 ```bash
 cd termlinkky_flutter
 
-# Get dependencies
-flutter pub get
-
-# Run on connected device/emulator
-flutter run
-
-# Or build for specific platform
+# iOS
 flutter build ios
+
+# Android
 flutter build apk
+
+# macOS
 flutter build macos
+
+# Windows
 flutter build windows
+
+# Linux
 flutter build linux
 ```
 
-## Project Structure
+### 4. Pair
+
+1. Open TermLinkky app
+2. Go to Devices → Pair New Device
+3. Enter Tailscale IP and port
+4. Enter 6-digit pairing code
+5. Done!
+
+## AI Modes
+
+### Mode 1: AI Assist (AI on Phone)
+
+Use natural language to run commands on ANY server - even ones without AI installed.
 
 ```
-lib/
-├── main.dart              # App entry point
-├── models/
-│   ├── paired_device.dart # Device + certificate data
-│   ├── quick_command.dart # Command definitions
-│   └── terminal_line.dart # ANSI-parsed output
-├── services/
-│   ├── pairing_manager.dart    # Cert pinning + pairing
-│   ├── connection_manager.dart # WebSocket connections
-│   └── settings_manager.dart   # Preferences + commands
-├── screens/
-│   ├── home_screen.dart     # Tab navigation
-│   ├── terminal_screen.dart # Terminal view
-│   ├── devices_screen.dart  # Paired devices
-│   └── settings_screen.dart # App settings
-└── widgets/
-    ├── command_palette.dart # Quick command grid
-    └── pairing_sheet.dart   # Pairing flow UI
+You: "check disk space and clean temp files"
+        ↓
+Phone AI generates:
+  • df -h
+  • rm -rf /tmp/*
+        ↓
+Executes on server
 ```
 
-## Server
+**Setup:** Settings → AI → Add your Claude or OpenAI API key
 
-The companion server runs on your workstation (Mac/Windows/Linux).
-See `../TermLinkky/server/` for the Python server.
+### Mode 2: AI Sessions (AI on Server)
 
-```bash
-cd ../TermLinkky/server
-pip install -r requirements.txt
-python server.py
-```
+Monitor and control AI coding agents (Claude Code, Codex, Aider) running in tmux on your workstation.
+
+- List active AI sessions
+- Attach to watch output
+- Send prompts
+- Create new sessions
+- Kill sessions
 
 ## Command Categories
 
 | Category | Commands |
 |----------|----------|
-| **AI Agents** | Claude Code, Codex, Aider |
-| **Git** | status, pull, push, log, diff |
-| **Node.js** | npm install/dev/build/test |
-| **Python** | python3, pip, pytest |
-| **Docker** | ps, compose up/down |
-| **System** | df, top, htop, ps |
+| AI Agents | Claude Code, Codex, Aider |
+| Git | status, pull, push, log, diff, stash |
+| Node.js | npm install/dev/build/test |
+| Python | python3, pip, pytest |
+| Docker | ps, compose up/down |
+| System | df, top, htop, ps |
+| Files | ls, tree, find |
+| Terminal | clear, exit, tmux |
 
 ## Security
 
-- Certificate fingerprint stored after initial pairing
-- All connections verify cert matches (pinning)
-- No external CA required
-- Works over any network (local, Tailscale, etc.)
+| Layer | Protection |
+|-------|------------|
+| Network | Tailscale WireGuard encryption |
+| Server Binding | Only listens on Tailscale IP |
+| App Layer | Certificate pinning after pairing |
+| Pairing | 6-digit code prevents unauthorized setup |
+
+## Requirements
+
+**Client:**
+- iOS 14+ / Android 8+
+- macOS 12+ / Windows 10+ / Linux
+
+**Server:**
+- Python 3.9+
+- Tailscale
+- OpenSSL (for cert generation)
+
+## Project Structure
+
+```
+termlinkky_flutter/
+├── lib/
+│   ├── main.dart
+│   ├── models/           # Data structures
+│   ├── services/         # Business logic
+│   ├── screens/          # UI screens
+│   └── widgets/          # Reusable components
+├── ios/                  # iOS project
+├── android/              # Android project
+├── macos/                # macOS project
+├── windows/              # Windows project
+└── linux/                # Linux project
+
+TermLinkky/server/
+├── server.py             # Mac/Linux server
+├── server_windows.py     # Windows server
+├── install.sh            # Mac installer
+├── install_linux.sh      # Linux installer
+├── install_windows.bat   # Windows installer
+└── requirements.txt
+```
 
 ## License
 
 MIT
+
+---
+
+Built with Flutter 💙
