@@ -1,4 +1,4 @@
-# TermLinky (Flutter)
+# TermLinkky (Flutter)
 
 Cross-platform remote terminal client for developers. One codebase → iOS, Android, macOS, Windows, Linux.
 
@@ -45,7 +45,7 @@ brew install --cask flutter
 ### Run the App
 
 ```bash
-cd termlinky_flutter
+cd termlinkky_flutter
 
 # Get dependencies
 flutter pub get
@@ -87,10 +87,10 @@ lib/
 ## Server
 
 The companion server runs on your workstation (Mac/Windows/Linux).
-See `../TermLinky/server/` for the Python server.
+See `../TermLinkky/server/` for the Python server.
 
 ```bash
-cd ../TermLinky/server
+cd ../TermLinkky/server
 pip install -r requirements.txt
 python server.py
 ```

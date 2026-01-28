@@ -8,11 +8,11 @@ import 'screens/home_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const TermLinkyApp());
+  runApp(const TermLinkkyApp());
 }
 
-class TermLinkyApp extends StatelessWidget {
-  const TermLinkyApp({super.key});
+class TermLinkkyApp extends StatelessWidget {
+  const TermLinkkyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +24,7 @@ class TermLinkyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AIAssistant()),
       ],
       child: MaterialApp(
-        title: 'TermLinky',
+        title: 'TermLinkky',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,

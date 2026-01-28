@@ -72,7 +72,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('TermLinky'),
+        title: const Text('TermLinkky'),
         actions: [
           if (connectionManager.isConnected)
             PopupMenuButton(

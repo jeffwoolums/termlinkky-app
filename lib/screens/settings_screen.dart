@@ -84,7 +84,7 @@ class SettingsScreen extends StatelessWidget {
             trailing: Text('1.0.0'),
           ),
           const ListTile(
-            title: Text('TermLinky'),
+            title: Text('TermLinkky'),
             subtitle: Text('Remote terminal for developers'),
           ),
           const SizedBox(height: 32),

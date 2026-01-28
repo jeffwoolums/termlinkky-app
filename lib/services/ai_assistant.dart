@@ -107,7 +107,7 @@ class AIAssistant extends ChangeNotifier {
   }
 
   Future<_AIResponse> _callAI(String userMessage) async {
-    final systemPrompt = '''You are TermLinky AI, a terminal assistant. The user is remotely connected to their workstation and needs help executing commands.
+    final systemPrompt = '''You are TermLinkky AI, a terminal assistant. The user is remotely connected to their workstation and needs help executing commands.
 
 Your job:
 1. Understand what the user wants to accomplish
