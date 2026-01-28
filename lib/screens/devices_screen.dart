@@ -87,7 +87,7 @@ class _DeviceTile extends StatelessWidget {
     final connectionManager = context.watch<ConnectionManager>();
     final pairingManager = context.watch<PairingManager>();
     final isConnected = connectionManager.currentDevice?.id == device.id && connectionManager.isConnected;
-    final isConnecting = connectionManager.currentDevice?.id == device.id && connectionManager.state == ConnectionState.connecting;
+    final isConnecting = connectionManager.currentDevice?.id == device.id && connectionManager.state == AppConnectionState.connecting;
 
     return Dismissible(
       key: Key(device.id),

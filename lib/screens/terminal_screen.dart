@@ -184,16 +184,16 @@ class _ConnectionStatusBar extends StatelessWidget {
     String statusText;
 
     switch (connectionManager.state) {
-      case ConnectionState.connected:
+      case AppConnectionState.connected:
         statusColor = Colors.green;
         statusText = 'Connected to ${connectionManager.currentDevice?.name ?? "device"}';
-      case ConnectionState.connecting:
+      case AppConnectionState.connecting:
         statusColor = Colors.yellow;
         statusText = 'Connecting...';
-      case ConnectionState.disconnected:
+      case AppConnectionState.disconnected:
         statusColor = Colors.grey;
         statusText = 'Not connected';
-      case ConnectionState.error:
+      case AppConnectionState.error:
         statusColor = Colors.red;
         statusText = connectionManager.errorMessage ?? 'Error';
     }

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 class PairedDevice {
   final String id;
   final String name;
