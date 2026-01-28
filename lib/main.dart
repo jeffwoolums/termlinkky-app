@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'services/connection_manager.dart';
 import 'services/pairing_manager.dart';
 import 'services/settings_manager.dart';
+import 'services/ai_assistant.dart';
 import 'screens/home_screen.dart';
 
 void main() {
@@ -20,6 +21,7 @@ class TermLinkyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PairingManager()),
         ChangeNotifierProvider(create: (_) => ConnectionManager()),
         ChangeNotifierProvider(create: (_) => SettingsManager()),
+        ChangeNotifierProvider(create: (_) => AIAssistant()),
       ],
       child: MaterialApp(
         title: 'TermLinky',

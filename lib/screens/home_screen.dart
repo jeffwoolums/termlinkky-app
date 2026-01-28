@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/pairing_manager.dart';
+import '../services/ai_assistant.dart';
 import 'terminal_screen.dart';
+import 'ai_chat_screen.dart';
 import 'devices_screen.dart';
 import 'settings_screen.dart';
 
@@ -17,6 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final _screens = const [
     TerminalScreen(),
+    AIChatScreen(),
     DevicesScreen(),
     SettingsScreen(),
   ];
@@ -24,11 +27,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // If no paired devices, show devices tab
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final pairingManager = context.read<PairingManager>();
       if (pairingManager.pairedDevices.isEmpty) {
-        setState(() => _currentIndex = 1);
+        setState(() => _currentIndex = 2); // Devices tab
       }
     });
   }
@@ -36,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final pairingManager = context.watch<PairingManager>();
+    final ai = context.watch<AIAssistant>();
 
     return Scaffold(
       body: IndexedStack(
@@ -49,6 +52,14 @@ class _HomeScreenState extends State<HomeScreen> {
           const NavigationDestination(
             icon: Icon(Icons.terminal),
             label: 'Terminal',
+          ),
+          NavigationDestination(
+            icon: Badge(
+              isLabelVisible: !ai.isConfigured,
+              label: const Text('!'),
+              child: const Icon(Icons.auto_awesome),
+            ),
+            label: 'AI',
           ),
           NavigationDestination(
             icon: Badge(
