@@ -97,6 +97,13 @@ class PairingManager extends ChangeNotifier {
     notifyListeners();
 
     final pairingCode = PairingCode.fromFingerprint(_pendingFingerprint!);
+    
+    // DEBUG: Show what codes we're comparing
+    debugPrint('=== PAIRING DEBUG ===');
+    debugPrint('Fingerprint: ${_pendingFingerprint!.substring(0, 30)}...');
+    debugPrint('Expected code: ${pairingCode.code}');
+    debugPrint('Entered code: $code');
+    debugPrint('=====================');
 
     if (pairingCode.verify(code)) {
       final device = PairedDevice(
@@ -112,7 +119,8 @@ class PairingManager extends ChangeNotifier {
       _pendingFingerprint = null;
     } else {
       _state = PairingState.error;
-      _errorMessage = 'Invalid pairing code';
+      // Show expected code in error for debugging
+      _errorMessage = 'Invalid code. Expected: ${pairingCode.code}';
     }
     notifyListeners();
   }

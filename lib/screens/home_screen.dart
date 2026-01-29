@@ -54,31 +54,36 @@ class _HomeScreenState extends State<HomeScreen> {
         onDestinationSelected: (index) => setState(() => _currentIndex = index),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.terminal),
+          NavigationDestination(
+            icon: Badge(
+              isLabelVisible: !connection.isConnected,
+              backgroundColor: Colors.orange,
+              label: const Text('!'),
+              child: const Icon(Icons.terminal),
+            ),
             label: 'Terminal',
           ),
           NavigationDestination(
             icon: Badge(
               isLabelVisible: !ai.isConfigured,
               label: const Text('!'),
-              child: const Icon(Icons.smart_toy_outlined),
+              child: const Icon(Icons.phone_android_outlined),
             ),
             selectedIcon: Badge(
               isLabelVisible: !ai.isConfigured,
               label: const Text('!'),
-              child: const Icon(Icons.smart_toy),
+              child: const Icon(Icons.phone_android),
             ),
-            label: 'AI Assist',
+            label: 'Local AI',
           ),
           NavigationDestination(
             icon: Badge(
               isLabelVisible: connection.isConnected,
               backgroundColor: Colors.green,
-              child: const Icon(Icons.psychology_outlined),
+              child: const Icon(Icons.computer_outlined),
             ),
-            selectedIcon: const Icon(Icons.psychology),
-            label: 'Sessions',
+            selectedIcon: const Icon(Icons.computer),
+            label: 'Server AI',
           ),
           NavigationDestination(
             icon: Badge(

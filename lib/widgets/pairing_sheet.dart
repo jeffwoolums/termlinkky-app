@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/pairing_manager.dart';
+import '../services/device_discovery.dart';
 
 class PairingSheet extends StatefulWidget {
   const PairingSheet({super.key});
@@ -9,19 +10,49 @@ class PairingSheet extends StatefulWidget {
   State<PairingSheet> createState() => _PairingSheetState();
 }
 
-class _PairingSheetState extends State<PairingSheet> {
+class _PairingSheetState extends State<PairingSheet> with SingleTickerProviderStateMixin {
   final _hostController = TextEditingController();
   final _portController = TextEditingController(text: '8443');
   final _nameController = TextEditingController(text: 'My Mac');
   final _codeController = TextEditingController();
+  
+  late TabController _tabController;
+  final _discoveryService = DeviceDiscoveryService();
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _hostController.addListener(_onFieldChanged);
+    _codeController.addListener(_onFieldChanged);
+    
+    // Start scanning automatically
+    _discoveryService.addListener(() => setState(() {}));
+    _discoveryService.scanForDevices();
+  }
+
+  void _onFieldChanged() {
+    setState(() {});
+  }
 
   @override
   void dispose() {
+    _tabController.dispose();
+    _hostController.removeListener(_onFieldChanged);
+    _codeController.removeListener(_onFieldChanged);
     _hostController.dispose();
     _portController.dispose();
     _nameController.dispose();
     _codeController.dispose();
+    _discoveryService.dispose();
     super.dispose();
+  }
+
+  void _selectDevice(DiscoveredDevice device) {
+    _hostController.text = device.ip;
+    _portController.text = device.port.toString();
+    _nameController.text = device.name;
+    _tabController.animateTo(1); // Switch to manual tab to show filled fields
   }
 
   @override
@@ -29,34 +60,147 @@ class _PairingSheetState extends State<PairingSheet> {
     final pairingManager = context.watch<PairingManager>();
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.6,
+      initialChildSize: 0.75,
       minChildSize: 0.4,
-      maxChildSize: 0.9,
+      maxChildSize: 0.95,
       expand: false,
       builder: (context, scrollController) {
-        return SingleChildScrollView(
-          controller: scrollController,
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2))),
-              const SizedBox(height: 24),
-              _buildContent(pairingManager),
-            ],
-          ),
+        return Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            
+            // Show tabs only in idle state
+            if (pairingManager.state == PairingState.idle) ...[
+              TabBar(
+                controller: _tabController,
+                tabs: const [
+                  Tab(icon: Icon(Icons.search), text: 'Discover'),
+                  Tab(icon: Icon(Icons.edit), text: 'Manual'),
+                ],
+              ),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildDiscoveryTab(pairingManager),
+                    SingleChildScrollView(
+                      controller: scrollController,
+                      padding: const EdgeInsets.all(24),
+                      child: _buildManualEntry(pairingManager),
+                    ),
+                  ],
+                ),
+              ),
+            ] else
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(24),
+                  child: _buildContent(pairingManager),
+                ),
+              ),
+          ],
         );
       },
     );
   }
 
+  Widget _buildDiscoveryTab(PairingManager pairingManager) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(Icons.wifi_find, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _discoveryService.isScanning ? 'Scanning network...' : 'Found ${_discoveryService.devices.length} devices',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              if (_discoveryService.isScanning)
+                const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              else
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: () => _discoveryService.scanForDevices(),
+                  tooltip: 'Scan again',
+                ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: _discoveryService.devices.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (_discoveryService.isScanning) ...[
+                        const CircularProgressIndicator(),
+                        const SizedBox(height: 16),
+                        const Text('Looking for TermLinkky servers...'),
+                      ] else ...[
+                        Icon(Icons.devices_other, size: 48, color: Colors.grey[400]),
+                        const SizedBox(height: 16),
+                        const Text('No devices found'),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () => _tabController.animateTo(1),
+                          child: const Text('Enter manually'),
+                        ),
+                      ],
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: _discoveryService.devices.length,
+                  itemBuilder: (context, index) {
+                    final device = _discoveryService.devices[index];
+                    return ListTile(
+                      leading: Icon(
+                        device.source == 'tailscale' ? Icons.vpn_lock : Icons.laptop_mac,
+                        color: device.isOnline ? Colors.green : Colors.grey,
+                      ),
+                      title: Text(device.name),
+                      subtitle: Text(
+                        '${device.ip}:${device.port} • ${device.source}',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          color: device.isOnline ? null : Colors.grey,
+                        ),
+                      ),
+                      trailing: device.isOnline
+                          ? const Icon(Icons.check_circle, color: Colors.green)
+                          : const Icon(Icons.circle_outlined, color: Colors.grey),
+                      onTap: () => _selectDevice(device),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildContent(PairingManager pairingManager) {
     switch (pairingManager.state) {
-      case PairingState.idle: return _buildManualEntry(pairingManager);
-      case PairingState.connecting: return _buildConnecting();
-      case PairingState.awaitingCode: return _buildCodeEntry(pairingManager);
-      case PairingState.verifying: return _buildVerifying();
-      case PairingState.paired: return _buildSuccess(pairingManager);
-      case PairingState.error: return _buildError(pairingManager);
+      case PairingState.idle:
+        return _buildManualEntry(pairingManager);
+      case PairingState.connecting:
+        return _buildConnecting();
+      case PairingState.awaitingCode:
+        return _buildCodeEntry(pairingManager);
+      case PairingState.verifying:
+        return _buildVerifying();
+      case PairingState.paired:
+        return _buildSuccess(pairingManager);
+      case PairingState.error:
+        return _buildError(pairingManager);
     }
   }
 
@@ -67,18 +211,40 @@ class _PairingSheetState extends State<PairingSheet> {
         const SizedBox(height: 16),
         Text('Pair Your Mac', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 8),
-        const Text('Enter the IP address shown in the Mac app', textAlign: TextAlign.center),
+        const Text('Enter the IP address or select from discovered devices', textAlign: TextAlign.center),
         const SizedBox(height: 24),
-        TextField(controller: _nameController, decoration: const InputDecoration(labelText: 'Device Name', border: OutlineInputBorder())),
+        TextField(
+          controller: _nameController,
+          decoration: const InputDecoration(labelText: 'Device Name', border: OutlineInputBorder()),
+        ),
         const SizedBox(height: 12),
-        TextField(controller: _hostController, decoration: const InputDecoration(labelText: 'IP Address', border: OutlineInputBorder()), keyboardType: TextInputType.url, autocorrect: false),
+        TextField(
+          controller: _hostController,
+          decoration: const InputDecoration(
+            labelText: 'IP Address',
+            border: OutlineInputBorder(),
+            hintText: 'e.g., 100.70.5.93 or 192.168.1.100',
+          ),
+          keyboardType: TextInputType.url,
+          autocorrect: false,
+        ),
         const SizedBox(height: 12),
-        TextField(controller: _portController, decoration: const InputDecoration(labelText: 'Port', border: OutlineInputBorder()), keyboardType: TextInputType.number),
+        TextField(
+          controller: _portController,
+          decoration: const InputDecoration(labelText: 'Port', border: OutlineInputBorder()),
+          keyboardType: TextInputType.number,
+        ),
         const SizedBox(height: 24),
         SizedBox(
           width: double.infinity,
           child: FilledButton(
-            onPressed: _hostController.text.isEmpty ? null : () => pairingManager.startPairing(_hostController.text, int.tryParse(_portController.text) ?? 8443, _nameController.text),
+            onPressed: _hostController.text.isEmpty
+                ? null
+                : () => pairingManager.startPairing(
+                      _hostController.text,
+                      int.tryParse(_portController.text) ?? 8443,
+                      _nameController.text,
+                    ),
             child: const Text('Connect'),
           ),
         ),
@@ -86,8 +252,27 @@ class _PairingSheetState extends State<PairingSheet> {
     );
   }
 
-  Widget _buildConnecting() => const Column(children: [CircularProgressIndicator(), SizedBox(height: 16), Text('Connecting...')]);
-  Widget _buildVerifying() => const Column(children: [CircularProgressIndicator(), SizedBox(height: 16), Text('Verifying...')]);
+  Widget _buildConnecting() {
+    return const Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        CircularProgressIndicator(),
+        SizedBox(height: 16),
+        Text('Connecting...'),
+      ],
+    );
+  }
+
+  Widget _buildVerifying() {
+    return const Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        CircularProgressIndicator(),
+        SizedBox(height: 16),
+        Text('Verifying...'),
+      ],
+    );
+  }
 
   Widget _buildCodeEntry(PairingManager pairingManager) {
     return Column(
@@ -113,7 +298,14 @@ class _PairingSheetState extends State<PairingSheet> {
         SizedBox(
           width: double.infinity,
           child: FilledButton(
-            onPressed: _codeController.text.length != 6 ? null : () => pairingManager.verifyPairingCode(_codeController.text, _nameController.text, _hostController.text, int.tryParse(_portController.text) ?? 8443),
+            onPressed: _codeController.text.length != 6
+                ? null
+                : () => pairingManager.verifyPairingCode(
+                      _codeController.text,
+                      _nameController.text,
+                      _hostController.text,
+                      int.tryParse(_portController.text) ?? 8443,
+                    ),
             child: const Text('Verify'),
           ),
         ),
@@ -124,11 +316,17 @@ class _PairingSheetState extends State<PairingSheet> {
   Widget _buildSuccess(PairingManager pairingManager) {
     return Column(
       children: [
-        Icon(Icons.check_circle, size: 60, color: Colors.green),
+        const Icon(Icons.check_circle, size: 60, color: Colors.green),
         const SizedBox(height: 16),
         Text('Paired!', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 24),
-        FilledButton(onPressed: () { pairingManager.cancelPairing(); Navigator.pop(context); }, child: const Text('Done')),
+        FilledButton(
+          onPressed: () {
+            pairingManager.cancelPairing();
+            Navigator.pop(context);
+          },
+          child: const Text('Done'),
+        ),
       ],
     );
   }
@@ -140,9 +338,16 @@ class _PairingSheetState extends State<PairingSheet> {
         const SizedBox(height: 16),
         Text('Pairing Failed', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 8),
-        Text(pairingManager.errorMessage ?? 'Unknown error', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[500])),
+        Text(
+          pairingManager.errorMessage ?? 'Unknown error',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.grey[500]),
+        ),
         const SizedBox(height: 24),
-        OutlinedButton(onPressed: pairingManager.cancelPairing, child: const Text('Try Again')),
+        OutlinedButton(
+          onPressed: pairingManager.cancelPairing,
+          child: const Text('Try Again'),
+        ),
       ],
     );
   }

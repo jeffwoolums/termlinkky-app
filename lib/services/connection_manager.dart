@@ -135,4 +135,57 @@ class ConnectionManager extends ChangeNotifier {
     _terminalLines.clear();
     notifyListeners();
   }
+
+  void sendSpecialKey(String key) {
+    if (!isConnected) return;
+    
+    // Map key names to escape sequences
+    final Map<String, String> keyMap = {
+      'enter': '\r',
+      'tab': '\t',
+      'escape': '\x1b',
+      'up': '\x1b[A',
+      'down': '\x1b[B',
+      'right': '\x1b[C',
+      'left': '\x1b[D',
+      'home': '\x1b[H',
+      'end': '\x1b[F',
+      'pageup': '\x1b[5~',
+      'pagedown': '\x1b[6~',
+      'delete': '\x1b[3~',
+      'backspace': '\x7f',
+      // Ctrl combinations
+      'ctrl+a': '\x01',
+      'ctrl+b': '\x02',
+      'ctrl+c': '\x03',
+      'ctrl+d': '\x04',
+      'ctrl+e': '\x05',
+      'ctrl+f': '\x06',
+      'ctrl+g': '\x07',
+      'ctrl+h': '\x08',
+      'ctrl+i': '\x09',
+      'ctrl+j': '\x0a',
+      'ctrl+k': '\x0b',
+      'ctrl+l': '\x0c',
+      'ctrl+m': '\x0d',
+      'ctrl+n': '\x0e',
+      'ctrl+o': '\x0f',
+      'ctrl+p': '\x10',
+      'ctrl+q': '\x11',
+      'ctrl+r': '\x12',
+      'ctrl+s': '\x13',
+      'ctrl+t': '\x14',
+      'ctrl+u': '\x15',
+      'ctrl+v': '\x16',
+      'ctrl+w': '\x17',
+      'ctrl+x': '\x18',
+      'ctrl+y': '\x19',
+      'ctrl+z': '\x1a',
+    };
+    
+    final sequence = keyMap[key.toLowerCase()];
+    if (sequence != null) {
+      _channel?.sink.add(sequence);
+    }
+  }
 }

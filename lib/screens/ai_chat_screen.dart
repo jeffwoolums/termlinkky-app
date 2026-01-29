@@ -62,7 +62,28 @@ class _AIChatScreenState extends State<AIChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AI Assistant'),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.withOpacity(0.5)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.phone_android, size: 16, color: Colors.blue),
+                  SizedBox(width: 4),
+                  Text('LOCAL AI', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text('AI Assist'),
+          ],
+        ),
         actions: [
           IconButton(icon: const Icon(Icons.delete_outline), onPressed: ai.messages.isEmpty ? null : () => ai.clearMessages()),
           IconButton(icon: const Icon(Icons.settings), onPressed: () => _showSettings(context)),

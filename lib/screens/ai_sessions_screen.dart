@@ -43,9 +43,30 @@ class _AISessionsScreenState extends State<AISessionsScreen> {
       builder: (context, _) {
         return Scaffold(
           appBar: AppBar(
-            title: Text(_sessionManager!.isAttached 
-                ? _sessionManager!.attachedSession ?? 'Session'
-                : 'AI Sessions'),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.withOpacity(0.5)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.computer, size: 16, color: Colors.green),
+                      SizedBox(width: 4),
+                      Text('SERVER AI', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(_sessionManager!.isAttached 
+                    ? _sessionManager!.attachedSession ?? 'Session'
+                    : 'Sessions'),
+              ],
+            ),
             leading: _sessionManager!.isAttached
                 ? IconButton(
                     icon: const Icon(Icons.arrow_back),
