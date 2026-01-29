@@ -97,7 +97,6 @@ class AnsiParser {
     
     // Find all escape sequences and categorize them
     final allMatches = _allEscapePattern.allMatches(text).toList();
-    final colorMatches = _colorPattern.allMatches(text).map((m) => m.start).toSet();
     
     // Remove non-color escapes by building clean string
     if (allMatches.isNotEmpty) {

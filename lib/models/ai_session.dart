@@ -23,10 +23,15 @@ class AISession {
     
     // Try to detect AI type from session name
     AISessionType type = AISessionType.unknown;
-    if (name.contains('claude')) type = AISessionType.claudeCode;
-    else if (name.contains('codex')) type = AISessionType.codex;
-    else if (name.contains('aider')) type = AISessionType.aider;
-    else if (name.contains('cursor')) type = AISessionType.cursor;
+    if (name.contains('claude')) {
+      type = AISessionType.claudeCode;
+    } else if (name.contains('codex')) {
+      type = AISessionType.codex;
+    } else if (name.contains('aider')) {
+      type = AISessionType.aider;
+    } else if (name.contains('cursor')) {
+      type = AISessionType.cursor;
+    }
     
     return AISession(
       name: name,

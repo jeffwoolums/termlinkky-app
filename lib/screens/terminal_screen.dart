@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/connection_manager.dart';
 import '../services/settings_manager.dart';
-import '../services/pairing_manager.dart';
 import '../models/terminal_line.dart';
 import '../widgets/command_palette.dart';
 import '../widgets/ai_overlay.dart';
@@ -71,8 +70,6 @@ class _TerminalScreenState extends State<TerminalScreen> {
   Widget build(BuildContext context) {
     // Only watch connection state, not terminal lines
     final isConnected = context.select<ConnectionManager, bool>((cm) => cm.isConnected);
-    final connectionState = context.select<ConnectionManager, AppConnectionState>((cm) => cm.state);
-    final deviceName = context.select<ConnectionManager, String?>((cm) => cm.currentDevice?.name);
 
     return Scaffold(
       appBar: AppBar(
