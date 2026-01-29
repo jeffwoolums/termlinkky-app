@@ -149,14 +149,21 @@ Only suggest commands that are safe and relevant. If the request is unclear, ask
           {'role': 'user', 'content': userMessage}
         ],
       }),
-    );
+    ).timeout(const Duration(seconds: 30), onTimeout: () {
+      throw Exception('Request timed out - please try again');
+    });
 
     if (response.statusCode != 200) {
       throw Exception('Claude API error: ${response.body}');
     }
 
     final data = jsonDecode(response.body);
-    final content = data['content'][0]['text'];
+    // Safely extract content with null checks
+    final contentList = data['content'] as List?;
+    if (contentList == null || contentList.isEmpty) {
+      throw Exception('Empty response from Claude');
+    }
+    final content = contentList[0]['text'] as String? ?? '';
     return _parseResponse(content);
   }
 
@@ -174,14 +181,22 @@ Only suggest commands that are safe and relevant. If the request is unclear, ask
           {'role': 'user', 'content': userMessage},
         ],
       }),
-    );
+    ).timeout(const Duration(seconds: 30), onTimeout: () {
+      throw Exception('Request timed out - please try again');
+    });
 
     if (response.statusCode != 200) {
       throw Exception('OpenAI API error: ${response.body}');
     }
 
     final data = jsonDecode(response.body);
-    final content = data['choices'][0]['message']['content'];
+    // Safely extract content with null checks
+    final choices = data['choices'] as List?;
+    if (choices == null || choices.isEmpty) {
+      throw Exception('Empty response from OpenAI');
+    }
+    final message = choices[0]['message'] as Map?;
+    final content = message?['content'] as String? ?? '';
     return _parseResponse(content);
   }
 

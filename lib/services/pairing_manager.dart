@@ -125,8 +125,8 @@ class PairingManager extends ChangeNotifier {
       _pendingFingerprint = null;
     } else {
       _state = PairingState.error;
-      // Show expected code in error for debugging
-      _errorMessage = 'Invalid code. Expected: ${pairingCode.code}';
+      _errorMessage = 'Invalid pairing code. Please check the code on your server.';
+      debugPrint('[Pairing] Code mismatch - expected: ${pairingCode.code}, got: $code');
     }
     notifyListeners();
   }
@@ -139,11 +139,12 @@ class PairingManager extends ChangeNotifier {
   }
 
   Future<String> _fetchServerFingerprint(String host, int port) async {
-    // Create a secure socket connection to get the certificate
+    // Create a secure socket connection to get the certificate with timeout
     final socket = await SecureSocket.connect(
       host,
       port,
       onBadCertificate: (cert) => true, // Accept any cert during pairing
+      timeout: const Duration(seconds: 10),
     );
 
     try {

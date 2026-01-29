@@ -98,10 +98,21 @@ class _AIOverlayState extends State<AIOverlay> {
 
   Widget _buildLastResponse(AIAssistant ai, bool canExecute) {
     // Show only the last AI response (not user messages)
-    final lastAIMessage = ai.messages.reversed.firstWhere(
-      (m) => m.role == 'assistant',
-      orElse: () => ai.messages.last,
-    );
+    // Safely handle empty or changing message list
+    if (ai.messages.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    AIMessage lastAIMessage;
+    try {
+      lastAIMessage = ai.messages.reversed.firstWhere(
+        (m) => m.role == 'assistant',
+        orElse: () => ai.messages.last,
+      );
+    } catch (e) {
+      // Handle race condition if messages change during iteration
+      return const SizedBox.shrink();
+    }
 
     return Container(
       padding: const EdgeInsets.all(12),

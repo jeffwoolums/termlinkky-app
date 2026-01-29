@@ -120,6 +120,7 @@ class ConnectionManager extends ChangeNotifier {
     final uri = Uri.parse('wss://${device.hostname}:${device.port}/terminal');
     
     final httpClient = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 10)
       ..badCertificateCallback = (cert, host, port) {
         final digest = sha256.convert(cert.der);
         final fingerprint = digest.bytes
@@ -132,7 +133,9 @@ class ConnectionManager extends ChangeNotifier {
     final socket = await WebSocket.connect(
       uri.toString(),
       customClient: httpClient,
-    );
+    ).timeout(const Duration(seconds: 15), onTimeout: () {
+      throw Exception('Connection timed out');
+    });
     
     _channel = IOWebSocketChannel(socket);
   }
