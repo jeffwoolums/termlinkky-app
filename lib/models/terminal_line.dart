@@ -33,7 +33,25 @@ class StyledSegment {
 }
 
 class AnsiParser {
-  static final _ansiPattern = RegExp(r'\x1B\[([0-9;]*)m');
+  // Match color/style codes specifically
+  static final _colorPattern = RegExp(r'\x1B\[([0-9;]*)m');
+  
+  // Match ALL escape sequences (to strip them)
+  // This catches: CSI sequences, OSC sequences, cursor movement, etc.
+  static final _allEscapePattern = RegExp(
+    r'\x1B'  // ESC character
+    r'(?:'
+      r'\[[0-9;?]*[A-Za-z]'  // CSI sequences (cursor, clear, scroll, etc.)
+      r'|'
+      r'\][^\x07\x1B]*(?:\x07|\x1B\\)'  // OSC sequences (title, etc.)
+      r'|'
+      r'[PX^_][^\x1B]*\x1B\\'  // DCS, SOS, PM, APC sequences
+      r'|'
+      r'[\(\)][AB012]'  // Character set selection
+      r'|'
+      r'[=>NMOFH78]'  // Single-character sequences
+    r')'
+  );
 
   static const _colors = {
     30: Colors.black,
@@ -55,6 +73,17 @@ class AnsiParser {
   };
 
   static List<StyledSegment> parse(String text) {
+    // Fail-safe: if anything goes wrong, just return plain text
+    try {
+      return _parseInternal(text);
+    } catch (e) {
+      // Strip all escape sequences and return plain text
+      final plainText = text.replaceAll(RegExp(r'\x1B\[[0-9;?]*[A-Za-z]|\x1B.'), '');
+      return [StyledSegment(text: plainText)];
+    }
+  }
+
+  static List<StyledSegment> _parseInternal(String text) {
     final segments = <StyledSegment>[];
     Color? foreground;
     Color? background;
@@ -62,11 +91,43 @@ class AnsiParser {
     bool italic = false;
     bool underline = false;
 
+    // First, strip all non-color escape sequences (cursor movement, screen clearing, etc.)
+    // Keep only color codes for processing
+    String cleanedText = text;
+    
+    // Find all escape sequences and categorize them
+    final allMatches = _allEscapePattern.allMatches(text).toList();
+    final colorMatches = _colorPattern.allMatches(text).map((m) => m.start).toSet();
+    
+    // Remove non-color escapes by building clean string
+    if (allMatches.isNotEmpty) {
+      final buffer = StringBuffer();
+      int pos = 0;
+      for (final match in allMatches) {
+        // Add text before this escape
+        if (match.start > pos) {
+          buffer.write(text.substring(pos, match.start));
+        }
+        // Only keep color codes (they end with 'm')
+        final seq = match.group(0) ?? '';
+        if (seq.endsWith('m') && seq.contains(RegExp(r'\x1B\[[0-9;]*m'))) {
+          buffer.write(seq);
+        }
+        // Skip non-color escapes (cursor movement, etc.)
+        pos = match.end;
+      }
+      // Add remaining text
+      if (pos < text.length) {
+        buffer.write(text.substring(pos));
+      }
+      cleanedText = buffer.toString();
+    }
+
     int lastEnd = 0;
-    for (final match in _ansiPattern.allMatches(text)) {
+    for (final match in _colorPattern.allMatches(cleanedText)) {
       // Add text before this match
       if (match.start > lastEnd) {
-        final beforeText = text.substring(lastEnd, match.start);
+        final beforeText = cleanedText.substring(lastEnd, match.start);
         if (beforeText.isNotEmpty) {
           segments.add(StyledSegment(
             text: beforeText,
@@ -118,8 +179,8 @@ class AnsiParser {
     }
 
     // Add remaining text
-    if (lastEnd < text.length) {
-      final remaining = text.substring(lastEnd);
+    if (lastEnd < cleanedText.length) {
+      final remaining = cleanedText.substring(lastEnd);
       if (remaining.isNotEmpty) {
         segments.add(StyledSegment(
           text: remaining,
@@ -132,6 +193,6 @@ class AnsiParser {
       }
     }
 
-    return segments.isEmpty ? [StyledSegment(text: text)] : segments;
+    return segments.isEmpty ? [StyledSegment(text: cleanedText)] : segments;
   }
 }

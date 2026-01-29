@@ -38,36 +38,47 @@ class SettingsManager extends ChangeNotifier {
   }
 
   Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
+    try {
+      final prefs = await SharedPreferences.getInstance();
 
-    // Load commands
-    final commandsJson = prefs.getString('quick_commands');
-    if (commandsJson != null) {
-      final List<dynamic> decoded = jsonDecode(commandsJson);
-      _quickCommands = decoded.map((c) => QuickCommand.fromJson(c)).toList();
-    } else {
+      // Load commands
+      final commandsJson = prefs.getString('quick_commands');
+      if (commandsJson != null) {
+        try {
+          final List<dynamic> decoded = jsonDecode(commandsJson);
+          _quickCommands = decoded.map((c) => QuickCommand.fromJson(c)).toList();
+        } catch (e) {
+          debugPrint('Error parsing quick commands: $e');
+          _quickCommands = QuickCommand.builtInCommands;
+        }
+      } else {
+        _quickCommands = QuickCommand.builtInCommands;
+        _saveCommands();
+      }
+
+      // Load settings with safe defaults
+      _fontSize = prefs.getDouble('font_size') ?? 14.0;
+      _showTimestamps = prefs.getBool('show_timestamps') ?? false;
+      _hapticFeedback = prefs.getBool('haptic_feedback') ?? true;
+      _autoReconnect = prefs.getBool('auto_reconnect') ?? true;
+      _keepScreenOn = prefs.getBool('keep_screen_on') ?? true;
+
+      final categoriesJson = prefs.getStringList('enabled_categories');
+      if (categoriesJson != null) {
+        _enabledCategories = categoriesJson
+            .map((c) => CommandCategory.values.firstWhere(
+                  (cat) => cat.name == c,
+                  orElse: () => CommandCategory.custom,
+                ))
+            .toSet();
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading settings: $e');
+      // Use defaults - don't crash
       _quickCommands = QuickCommand.builtInCommands;
-      _saveCommands();
     }
-
-    // Load settings
-    _fontSize = prefs.getDouble('font_size') ?? 14.0;
-    _showTimestamps = prefs.getBool('show_timestamps') ?? false;
-    _hapticFeedback = prefs.getBool('haptic_feedback') ?? true;
-    _autoReconnect = prefs.getBool('auto_reconnect') ?? true;
-    _keepScreenOn = prefs.getBool('keep_screen_on') ?? true;
-
-    final categoriesJson = prefs.getStringList('enabled_categories');
-    if (categoriesJson != null) {
-      _enabledCategories = categoriesJson
-          .map((c) => CommandCategory.values.firstWhere(
-                (cat) => cat.name == c,
-                orElse: () => CommandCategory.custom,
-              ))
-          .toSet();
-    }
-
-    notifyListeners();
   }
 
   Future<void> _saveCommands() async {

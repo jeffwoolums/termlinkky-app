@@ -7,6 +7,8 @@ import '../models/paired_device.dart';
 import '../models/terminal_line.dart';
 import 'pairing_manager.dart';
 
+// Timer is in dart:async, already imported
+
 enum AppConnectionState { disconnected, connecting, connected, error }
 
 class ConnectionManager extends ChangeNotifier {
@@ -17,6 +19,14 @@ class ConnectionManager extends ChangeNotifier {
   StreamSubscription? _subscription;
   String? _errorMessage;
   int _lineCounter = 0;
+  
+  // Auto-reconnect
+  PairingManager? _pairingManager;
+  int _reconnectAttempts = 0;
+  static const int _maxReconnectAttempts = 3;
+  static const Duration _reconnectDelay = Duration(seconds: 2);
+  bool _autoReconnectEnabled = true;
+  Timer? _reconnectTimer;
 
   AppConnectionState get state => _state;
   PairedDevice? get currentDevice => _currentDevice;
@@ -29,6 +39,9 @@ class ConnectionManager extends ChangeNotifier {
 
     _state = AppConnectionState.connecting;
     _currentDevice = device;
+    _pairingManager = pairingManager;
+    _reconnectAttempts = 0;
+    _reconnectTimer?.cancel();
     _terminalLines.clear();
     _errorMessage = null;
     notifyListeners();
@@ -36,10 +49,13 @@ class ConnectionManager extends ChangeNotifier {
     try {
       await _establishSecureConnection(device);
       _state = AppConnectionState.connected;
+      _autoReconnectEnabled = true;
+      _reconnectAttempts = 0;
       pairingManager.updateLastConnected(device);
       _startReceiving();
       notifyListeners();
     } catch (e) {
+      debugPrint('[CM] Connection failed: $e');
       _state = AppConnectionState.error;
       _errorMessage = e.toString();
       _currentDevice = null;
@@ -48,12 +64,56 @@ class ConnectionManager extends ChangeNotifier {
   }
 
   void disconnect() {
+    _reconnectTimer?.cancel();
+    _autoReconnectEnabled = false;  // Disable auto-reconnect on manual disconnect
     _subscription?.cancel();
     _channel?.sink.close();
     _channel = null;
     _currentDevice = null;
     _state = AppConnectionState.disconnected;
     notifyListeners();
+  }
+
+  void _attemptReconnect() {
+    if (!_autoReconnectEnabled) {
+      debugPrint('[CM] Auto-reconnect disabled');
+      return;
+    }
+    if (_currentDevice == null || _pairingManager == null) {
+      debugPrint('[CM] No device/pairing manager for reconnect');
+      return;
+    }
+    if (_reconnectAttempts >= _maxReconnectAttempts) {
+      debugPrint('[CM] Max reconnect attempts reached');
+      _errorMessage = 'Connection lost. Tap to reconnect.';
+      notifyListeners();
+      return;
+    }
+
+    _reconnectAttempts++;
+    debugPrint('[CM] Scheduling reconnect attempt $_reconnectAttempts/$_maxReconnectAttempts');
+    
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(_reconnectDelay * _reconnectAttempts, () async {
+      if (_state == AppConnectionState.disconnected && _currentDevice != null) {
+        debugPrint('[CM] Attempting reconnect...');
+        _terminalLines.add(TerminalLine(
+          id: '${_lineCounter++}',
+          text: '--- Reconnecting (attempt $_reconnectAttempts) ---',
+        ));
+        notifyListeners();
+        
+        // Re-enable auto-reconnect for this attempt
+        _autoReconnectEnabled = true;
+        await connect(_currentDevice!, _pairingManager!);
+      }
+    });
+  }
+  
+  /// Enable auto-reconnect (call after successful manual connect)
+  void enableAutoReconnect() {
+    _autoReconnectEnabled = true;
+    _reconnectAttempts = 0;
   }
 
   Future<void> _establishSecureConnection(PairedDevice device) async {
@@ -84,46 +144,58 @@ class ConnectionManager extends ChangeNotifier {
           _handleOutput(data);
         }
       },
-      onError: (error) {
+      onError: (error, stackTrace) {
+        debugPrint('[CM] WebSocket error: $error');
         _state = AppConnectionState.error;
         _errorMessage = error.toString();
         notifyListeners();
       },
       onDone: () {
+        debugPrint('[CM] WebSocket closed');
         if (_state == AppConnectionState.connected) {
           _state = AppConnectionState.disconnected;
           notifyListeners();
+          _attemptReconnect();
         }
       },
+      cancelOnError: false,
     );
   }
 
   void _handleOutput(String data) {
-    final lines = data.split('\n');
-    for (final line in lines) {
-      if (line.isNotEmpty) {
-        _terminalLines.add(TerminalLine(
-          id: '${_lineCounter++}',
-          text: line,
-        ));
+    try {
+      final lines = data.split('\n');
+      for (final line in lines) {
+        if (line.isNotEmpty) {
+          _terminalLines.add(TerminalLine(
+            id: '${_lineCounter++}',
+            text: line,
+          ));
+        }
       }
+      // Trim to max 1000 lines
+      if (_terminalLines.length > 1000) {
+        _terminalLines.removeRange(0, _terminalLines.length - 1000);
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[CM] Error handling output: $e');
     }
-    if (_terminalLines.length > 1000) {
-      _terminalLines.removeRange(0, 100);
-    }
-    notifyListeners();
   }
 
   void sendCommand(String command) {
     if (!isConnected) return;
     
-    _terminalLines.add(TerminalLine(
-      id: '${_lineCounter++}',
-      text: '\$ $command',
-    ));
-    notifyListeners();
-    
-    _channel?.sink.add('$command\n');
+    try {
+      _terminalLines.add(TerminalLine(
+        id: '${_lineCounter++}',
+        text: '\$ $command',
+      ));
+      notifyListeners();
+      _channel?.sink.add('$command\n');
+    } catch (e) {
+      debugPrint('[CM] Error sending command: $e');
+    }
   }
 
   void sendRawInput(String text) {

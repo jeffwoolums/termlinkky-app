@@ -29,12 +29,18 @@ class PairingManager extends ChangeNotifier {
   }
 
   Future<void> _loadPairedDevices() async {
-    final prefs = await SharedPreferences.getInstance();
-    final devicesJson = prefs.getString('paired_devices');
-    if (devicesJson != null) {
-      final List<dynamic> decoded = jsonDecode(devicesJson);
-      _pairedDevices = decoded.map((d) => PairedDevice.fromJson(d)).toList();
-      notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final devicesJson = prefs.getString('paired_devices');
+      if (devicesJson != null) {
+        final List<dynamic> decoded = jsonDecode(devicesJson);
+        _pairedDevices = decoded.map((d) => PairedDevice.fromJson(d)).toList();
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error loading paired devices: $e');
+      // Don't crash - just start with empty list
+      _pairedDevices = [];
     }
   }
 
