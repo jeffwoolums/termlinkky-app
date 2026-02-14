@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/pairing_manager.dart';
@@ -188,6 +189,7 @@ class _PairingSheetState extends State<PairingSheet> with SingleTickerProviderSt
   }
 
   Widget _buildContent(PairingManager pairingManager) {
+    debugPrint('[SHEET] Building content for state: ${pairingManager.state}');
     switch (pairingManager.state) {
       case PairingState.idle:
         return _buildManualEntry(pairingManager);

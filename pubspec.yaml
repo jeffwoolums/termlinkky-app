@@ -26,6 +26,7 @@ dependencies:
   
   # UI
   cupertino_icons: ^1.0.6
+  xterm: ^4.0.0
 
 dev_dependencies:
   flutter_test:

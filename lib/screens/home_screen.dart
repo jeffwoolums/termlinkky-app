@@ -45,6 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
 
     return Scaffold(
+      resizeToAvoidBottomInset: true, // Push content up when keyboard shows
       body: IndexedStack(
         index: _currentIndex,
         children: screens,

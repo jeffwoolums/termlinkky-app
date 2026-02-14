@@ -74,17 +74,24 @@ class PairingManager extends ChangeNotifier {
   }
 
   Future<void> startPairing(String host, int port, String name) async {
+    debugPrint('[PAIRING] startPairing called: $host:$port ($name)');
     _state = PairingState.connecting;
     _errorMessage = null;
     notifyListeners();
+    debugPrint('[PAIRING] State: connecting');
 
     try {
       // Connect and get certificate fingerprint
+      debugPrint('[PAIRING] Fetching fingerprint...');
       final fingerprint = await _fetchServerFingerprint(host, port);
+      debugPrint('[PAIRING] Got fingerprint: ${fingerprint.substring(0, 20)}...');
       _pendingFingerprint = fingerprint;
       _state = PairingState.awaitingCode;
+      debugPrint('[PAIRING] State: awaitingCode');
       notifyListeners();
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[PAIRING] ERROR: $e');
+      debugPrint('[PAIRING] Stack: $stack');
       _state = PairingState.error;
       _errorMessage = 'Could not connect: $e';
       notifyListeners();
@@ -92,7 +99,9 @@ class PairingManager extends ChangeNotifier {
   }
 
   void verifyPairingCode(String code, String name, String host, int port) {
+    debugPrint('[PAIRING] verifyPairingCode called with: $code');
     if (_pendingFingerprint == null) {
+      debugPrint('[PAIRING] ERROR: No pending fingerprint!');
       _state = PairingState.error;
       _errorMessage = 'No pending pairing';
       notifyListeners();
@@ -100,18 +109,19 @@ class PairingManager extends ChangeNotifier {
     }
 
     _state = PairingState.verifying;
+    debugPrint('[PAIRING] State: verifying');
     notifyListeners();
 
     final pairingCode = PairingCode.fromFingerprint(_pendingFingerprint!);
     
-    // DEBUG: Show what codes we're comparing
-    debugPrint('=== PAIRING DEBUG ===');
-    debugPrint('Fingerprint: ${_pendingFingerprint!.substring(0, 30)}...');
-    debugPrint('Expected code: ${pairingCode.code}');
-    debugPrint('Entered code: $code');
-    debugPrint('=====================');
+    debugPrint('[PAIRING] === CODE CHECK ===');
+    debugPrint('[PAIRING] Fingerprint: ${_pendingFingerprint!.substring(0, 30)}...');
+    debugPrint('[PAIRING] Expected: ${pairingCode.code}');
+    debugPrint('[PAIRING] Entered: $code');
+    debugPrint('[PAIRING] Match: ${pairingCode.verify(code)}');
 
     if (pairingCode.verify(code)) {
+      debugPrint('[PAIRING] Code verified! Creating device...');
       final device = PairedDevice(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: name,
@@ -120,13 +130,15 @@ class PairingManager extends ChangeNotifier {
         certificateFingerprint: _pendingFingerprint!,
         pairedAt: DateTime.now(),
       );
+      debugPrint('[PAIRING] Adding device: ${device.name}');
       addPairedDevice(device);
       _state = PairingState.paired;
+      debugPrint('[PAIRING] State: paired - SUCCESS!');
       _pendingFingerprint = null;
     } else {
+      debugPrint('[PAIRING] Code mismatch!');
       _state = PairingState.error;
       _errorMessage = 'Invalid pairing code. Please check the code on your server.';
-      debugPrint('[Pairing] Code mismatch - expected: ${pairingCode.code}, got: $code');
     }
     notifyListeners();
   }

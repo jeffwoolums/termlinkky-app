@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'services/connection_manager.dart';
 import 'services/pairing_manager.dart';
 import 'services/settings_manager.dart';
@@ -8,8 +9,11 @@ import 'services/ai_assistant.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/home_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize SharedPreferences BEFORE anything else to prevent race conditions
+  await SharedPreferences.getInstance();
   
   // Set preferred orientations
   SystemChrome.setPreferredOrientations([

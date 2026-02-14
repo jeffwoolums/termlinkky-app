@@ -139,9 +139,39 @@ class AnsiParser {
         }
       }
 
-      // Parse codes
-      final codes = match.group(1)?.split(';').map(int.tryParse).whereType<int>() ?? [];
-      for (final code in codes) {
+      // Parse codes - handle 24-bit RGB colors (38;2;R;G;B and 48;2;R;G;B)
+      final codeList = match.group(1)?.split(';').map(int.tryParse).toList() ?? [];
+      int i = 0;
+      while (i < codeList.length) {
+        final code = codeList[i];
+        if (code == null) { i++; continue; }
+        
+        // Check for 24-bit RGB foreground: 38;2;R;G;B
+        if (code == 38 && i + 4 < codeList.length && codeList[i + 1] == 2) {
+          final r = codeList[i + 2] ?? 0;
+          final g = codeList[i + 3] ?? 0;
+          final b = codeList[i + 4] ?? 0;
+          foreground = Color.fromRGBO(r.clamp(0, 255), g.clamp(0, 255), b.clamp(0, 255), 1.0);
+          i += 5;
+          continue;
+        }
+        
+        // Check for 24-bit RGB background: 48;2;R;G;B
+        if (code == 48 && i + 4 < codeList.length && codeList[i + 1] == 2) {
+          final r = codeList[i + 2] ?? 0;
+          final g = codeList[i + 3] ?? 0;
+          final b = codeList[i + 4] ?? 0;
+          background = Color.fromRGBO(r.clamp(0, 255), g.clamp(0, 255), b.clamp(0, 255), 1.0);
+          i += 5;
+          continue;
+        }
+        
+        // Check for 256-color: 38;5;N or 48;5;N (just skip these for now)
+        if ((code == 38 || code == 48) && i + 2 < codeList.length && codeList[i + 1] == 5) {
+          i += 3;
+          continue;
+        }
+        
         switch (code) {
           case 0:
             foreground = null;
@@ -172,6 +202,7 @@ class AnsiParser {
               background = _colors[code - 10];
             }
         }
+        i++;
       }
 
       lastEnd = match.end;

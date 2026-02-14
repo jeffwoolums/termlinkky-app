@@ -20,6 +20,10 @@ class ConnectionManager extends ChangeNotifier {
   String? _errorMessage;
   int _lineCounter = 0;
   
+  // Stream for real terminal emulator
+  final StreamController<String> _outputController = StreamController<String>.broadcast();
+  Stream<String> get outputStream => _outputController.stream;
+  
   // Auto-reconnect
   PairingManager? _pairingManager;
   int _reconnectAttempts = 0;
@@ -118,16 +122,25 @@ class ConnectionManager extends ChangeNotifier {
 
   Future<void> _establishSecureConnection(PairedDevice device) async {
     final uri = Uri.parse('wss://${device.hostname}:${device.port}/terminal');
+    debugPrint('[CM] Connecting to: $uri');
+    debugPrint('[CM] Expected fingerprint: ${device.certificateFingerprint.substring(0, 20)}...');
     
-    final httpClient = HttpClient()
+    // Use SecurityContext that accepts all certs, then verify fingerprint manually
+    final context = SecurityContext(withTrustedRoots: false);
+    
+    final httpClient = HttpClient(context: context)
       ..connectionTimeout = const Duration(seconds: 10)
-      ..badCertificateCallback = (cert, host, port) {
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) {
+        debugPrint('[CM] Checking certificate for $host:$port');
         final digest = sha256.convert(cert.der);
         final fingerprint = digest.bytes
             .map((b) => b.toRadixString(16).padLeft(2, '0'))
             .join(':');
-        return fingerprint.toLowerCase() == 
-               device.certificateFingerprint.toLowerCase();
+        debugPrint('[CM] Server fingerprint: ${fingerprint.substring(0, 20)}...');
+        debugPrint('[CM] Stored fingerprint: ${device.certificateFingerprint.substring(0, 20)}...');
+        final matches = fingerprint.toLowerCase() == device.certificateFingerprint.toLowerCase();
+        debugPrint('[CM] Match: $matches');
+        return matches;
       };
 
     final socket = await WebSocket.connect(
@@ -137,6 +150,7 @@ class ConnectionManager extends ChangeNotifier {
       throw Exception('Connection timed out');
     });
     
+    debugPrint('[CM] WebSocket connected!');
     _channel = IOWebSocketChannel(socket);
   }
 
@@ -165,10 +179,22 @@ class ConnectionManager extends ChangeNotifier {
     );
   }
 
+  String _outputBuffer = '';
+  
   void _handleOutput(String data) {
     try {
-      final lines = data.split('\n');
-      for (final line in lines) {
+      // Push raw data to terminal emulator stream
+      _outputController.add(data);
+      
+      // Accumulate data in buffer
+      _outputBuffer += data;
+      
+      // Only process complete lines (ending with newline)
+      while (_outputBuffer.contains('\n')) {
+        final newlineIndex = _outputBuffer.indexOf('\n');
+        final line = _outputBuffer.substring(0, newlineIndex);
+        _outputBuffer = _outputBuffer.substring(newlineIndex + 1);
+        
         if (line.isNotEmpty) {
           _terminalLines.add(TerminalLine(
             id: '${_lineCounter++}',
@@ -176,6 +202,17 @@ class ConnectionManager extends ChangeNotifier {
           ));
         }
       }
+      
+      // If buffer has content but no newline, add it as partial line after delay
+      // This handles prompts and real-time output
+      if (_outputBuffer.isNotEmpty && _outputBuffer.length > 2) {
+        _terminalLines.add(TerminalLine(
+          id: '${_lineCounter++}',
+          text: _outputBuffer,
+        ));
+        _outputBuffer = '';
+      }
+      
       // Trim to max 1000 lines
       if (_terminalLines.length > 1000) {
         _terminalLines.removeRange(0, _terminalLines.length - 1000);
@@ -262,5 +299,14 @@ class ConnectionManager extends ChangeNotifier {
     if (sequence != null) {
       _channel?.sink.add(sequence);
     }
+  }
+
+  int _lastCols = 0;
+  int _lastRows = 0;
+  
+  void sendResize(int cols, int rows) {
+    // Disable for now - causes display issues
+    // TODO: Implement proper resize via separate control channel
+    debugPrint('[CM] Resize requested: ${cols}x$rows (not sent)');
   }
 }
